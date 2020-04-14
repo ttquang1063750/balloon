@@ -1,5 +1,7 @@
 {
   "name": "balloon",
-  "integrations": {},
+  "integrations": {
+    "cordova": {}
+  },
   "type": "angular"
 }
