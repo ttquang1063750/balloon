@@ -1,4 +1,5 @@
 import Color from 'color';
+import {Utils} from './Utils';
 
 const KAPPA = (4 * (Math.sqrt(2) - 1)) / 3;
 const WIDTH_FACTOR = 0.0333;
@@ -14,19 +15,38 @@ export class Balloon {
     centerX;
     centerY;
     radius;
-    baseColor;
-    darkColor;
-    lightColor;
     path2D;
+    color;
+    isSpecial;
 
-    constructor(context, centerX, centerY, radius, color) {
+    constructor(context, centerX, centerY, radius, color, isSpecial = false) {
         this.context = context;
         this.centerX = centerX;
         this.centerY = centerY;
         this.radius = radius;
-        this.baseColor = new Color(color);
-        this.darkColor = this.baseColor.darken(GRADIENT_FACTOR);
-        this.lightColor = this.baseColor.lighten(GRADIENT_FACTOR);
+        this.color = color;
+        this.isSpecial = isSpecial;
+    }
+
+    get darkColor() {
+        return this.baseColor.darken(GRADIENT_FACTOR);
+    }
+
+    get lightColor() {
+        return this.baseColor.lighten(GRADIENT_FACTOR);
+    }
+
+    get baseColor() {
+        if (this.isSpecial) {
+            return new Color(Utils.getRandomColor());
+        }
+        return new Color(this.color);
+    }
+
+    setPosition(centerX, centerY) {
+        this.centerX = centerX;
+        this.centerY = centerY;
+        return this;
     }
 
     draw() {

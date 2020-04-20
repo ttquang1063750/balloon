@@ -1,4 +1,42 @@
 export class Utils {
+    static loadResources(urls: string[]): Promise<string[]> {
+        return new Promise(async resolve => {
+            let i = 0;
+            const data: any[] = [];
+            const load = async () => {
+                const item = await Utils.loadResource(urls[i]);
+                data.push(item);
+                i++;
+                if (i < urls.length) {
+                    await load();
+                } else {
+                    resolve(data);
+                }
+            };
+            await load();
+        });
+    }
+
+    static loadResource(src: string): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            const req = new XMLHttpRequest();
+            req.open('GET', src, true);
+            req.responseType = 'blob';
+            req.onload = () => {
+                if (req.status === 200) {
+                    const blob = URL.createObjectURL(req.response);
+                    resolve(blob);
+                }
+            };
+            req.onprogress = (ev) => {
+                const percent = Math.floor(ev.loaded / ev.total);
+                console.log(`${src}: [${percent}%]`);
+            };
+            req.onerror = reject;
+            req.send();
+        });
+    }
+
     static loadImages(imageUrls: string[]): Promise<HTMLImageElement[]> {
         return new Promise(async resolve => {
             let i = 0;
@@ -38,7 +76,7 @@ export class Utils {
             'rgb(255,47,77)',
             'rgb(99,109,205)',
             'rgb(140,193,205)',
-            'rgb(17,34,17)',
+            'rgb(249,23,255)',
             '#FA6900',
             '#E0E4CD',
             '#A7DBD7',
@@ -96,5 +134,40 @@ export class Utils {
         ctx.textAlign = 'center';
         ctx.fillStyle = 'white';
         ctx.fillText(text, x + w / 2, y + h / 2 + defaultOptions.fontSize / 2);
+    }
+
+    static fromGravity(x, y, dx, dy, r, w, h, collisionHorizontal = () => {}, collisionVertical = () => {}) {
+        const gravity = 0.9;
+        const friction = 0.99;
+
+        dy *= friction;
+        dx *= friction;
+
+        if (y + r + dy > h) {
+            dy = -dy;
+            collisionVertical();
+        } else {
+            dy += gravity;
+        }
+
+        if (x + r >= w || x - r <= 0) {
+            dx = -dx;
+            collisionHorizontal();
+        }
+
+        x += dx;
+        y += dy;
+
+        return {x, y, dx, dy, r, w, h};
+    }
+
+    static drawPop(context, image, centerX, centerY, radius) {
+        context.save();
+        context.beginPath();
+        context.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
+        context.closePath();
+        context.clip();
+        context.drawImage(image, centerX - radius, centerY - radius, radius * 2, radius * 2);
+        context.restore();
     }
 }
