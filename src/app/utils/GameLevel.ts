@@ -22,7 +22,6 @@ export class GameLevel {
 
     constructor() {
         this.reset();
-        this.next();
     }
 
     reset() {

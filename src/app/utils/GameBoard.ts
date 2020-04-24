@@ -42,6 +42,10 @@ export class GameBoard {
     objects = [];
     totalSmallBall = 5;
     balls = [];
+    textPauseButton = 'pause';
+    ringSound = null;
+    tooltip = '';
+    lastPop = 0;
 
     constructor(elementId) {
         this.canvas = document.getElementById(elementId);
@@ -96,13 +100,23 @@ export class GameBoard {
     onClickWhilePlaying(clientX, clientY) {
         const context = this.getContext();
         if (context.isPointInPath(this.pauseButton2D, clientX, clientY)) {
-            this.state = STATES.PLAYING === this.state ? STATES.PAUSED : STATES.PLAYING;
-            // Need play to fetch the new text
-            this.play();
+            if (this.state === STATES.PLAYING) {
+                this.soundPlayer.stop();
+                this.textPauseButton = 'play';
+                Timer.requestTimeOut(() => {
+                    this.state = STATES.PAUSED;
+                }, 10);
+            } else {
+                this.soundPlayer.play();
+                this.state = STATES.PLAYING;
+                this.textPauseButton = 'pause';
+            }
+            return;
         }
 
         if (context.isPointInPath(this.resetButton2D, clientX, clientY) && this.state !== STATES.PAUSED) {
             this.reset();
+            return;
         }
 
         if (this.state === STATES.PLAYING) {
@@ -115,6 +129,12 @@ export class GameBoard {
                     this.count++;
                     this.createExplore(clientX, clientY, this.totalSmallBall);
                     this.score += o.score;
+                    this.lastPop = Date.now();
+                    if (o.score > 0) {
+                        this.tooltip = `gotcha!!  ${o.score}`;
+                    } else {
+                        this.tooltip = `flee!!  ${o.score}`;
+                    }
                     if (this.score < 0) {
                         this.score = 0;
                     }
@@ -142,6 +162,7 @@ export class GameBoard {
     }
 
     reset() {
+        this.stopGame();
         this.state = STATES.RESET;
         this.gameLevel.reset();
     }
@@ -163,18 +184,13 @@ export class GameBoard {
         }
         times += delay;
         this.popSoundPlayer[0].setCurrentTime(0).play();
-        if (times < delay * 10) {
-            setTimeout(() => {
+        if (times < delay * 5) {
+            Timer.requestTimeOut(() => {
                 this.congratulation(times);
             }, times);
         } else {
             this.congratulationSoundPlayer.stop();
-            this.soundPlayer.play();
-            this.gameLevel.next();
-            this.score = 0;
-            this.count = 0;
-            this.loadBackground();
-            this.shuffle();
+            this.startGame();
         }
     }
 
@@ -248,6 +264,16 @@ export class GameBoard {
         ctx.textAlign = 'left';
         ctx.fillStyle = this.timeAgoColor;
         ctx.fillText(`Level: ${this.gameLevel.properties().level} - Played: ${Timer.timeAgo(this.startTsp)}`, x, this.height - 10);
+
+        if (this.lastPop + 1000 > Date.now() && this.tooltip !== '') {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(this.width / 2 - 100, this.height - 35, 200, 30);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'white';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${this.tooltip}`, this.width / 2, this.height - 18);
+        }
     }
 
     renderStartButton() {
@@ -269,7 +295,7 @@ export class GameBoard {
         const y = this.height - h - PADDING;
         const fontSize = 15;
         this.pauseButton2D = new Path2D();
-        Utils.createButton(this.state, ctx, x, y, w, h, {fontSize, color: this.btnPauseColor}, this.pauseButton2D);
+        Utils.createButton(this.textPauseButton, ctx, x, y, w, h, {fontSize, color: this.btnPauseColor}, this.pauseButton2D);
     }
 
     renderResetButton() {
@@ -284,11 +310,30 @@ export class GameBoard {
     }
 
     startGame() {
+        this.score = 0;
+        this.count = 0;
+        this.lastPop = Date.now();
+        this.gameLevel.next();
+        this.state = STATES.PLAYING;
         this.loadBackground();
-        this.shuffle();
-        this.play();
         this.startTsp = Date.now();
         this.soundPlayer.setLoop(true).play();
+        this.shuffle();
+        const audioContext = new AudioContext();
+        const oscillator = audioContext.createOscillator();
+        oscillator.type = 'square';
+        oscillator.start(0);
+        let last = Date.now();
+        this.ringSound = () => {
+            if (last < Date.now()) {
+                oscillator.disconnect();
+                const gain = audioContext.createGain();
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
+                oscillator.connect(gain);
+                gain.connect(audioContext.destination);
+                last = Date.now() + 500;
+            }
+        };
     }
 
     stopGame() {
@@ -322,46 +367,50 @@ export class GameBoard {
     }
 
     draw() {
-        this.clearRect();
-        this.renderStartButton();
-        Timer.requestAnimation(() => {
-            if (this.state === STATES.RESET || this.state === STATES.INTRO) {
-                this.draw();
-            }
-        });
-    }
+        if (this.state !== STATES.PAUSED) {
+            this.clearRect();
 
-    play() {
-        this.clearRect();
-        this.drawScoreAndCount();
-        for (const o of this.objects) {
-            this.moveX(o);
-            this.moveY(o);
-            const context = this.getContext();
-            if (o.canShow) {
-                o.balloon
-                    .setPosition(o.centerX, o.centerY)
-                    .draw();
+            if (this.state === STATES.INTRO || this.state === STATES.RESET) {
+                this.renderStartButton();
             }
-            if (o.wasPopped) {
-                Utils.drawPop(context, o.pop, o.centerX, o.centerY, o.radius);
-                this.speedUp(o);
-            }
-        }
-        this.balls.forEach(ball => ball.update());
-        this.renderPauseButton();
-        this.renderResetButton();
-        if (this.state === STATES.LEVEL_UP) {
-            this.createTextCongratulation();
-        }
 
-        Timer.requestAnimation(() => {
+            if (this.state === STATES.PLAYING) {
+                for (const o of this.objects) {
+                    this.moveX(o);
+                    this.moveY(o);
+                    const context = this.getContext();
+                    if (o.canShow) {
+                        o.balloon
+                            .setPosition(o.centerX, o.centerY)
+                            .draw();
+                        if (o.balloon.isSpecial) {
+                            this.ringSound();
+                        }
+                    }
+                    if (o.wasPopped) {
+                        Utils.drawPop(context, o.pop, o.centerX, o.centerY, o.radius);
+                        this.speedUp(o);
+                    }
+                }
+            }
+
+            if (this.state !== STATES.INTRO && this.state !== STATES.RESET) {
+                this.drawScoreAndCount();
+                this.renderPauseButton();
+                this.renderResetButton();
+            }
+
             if (this.state === STATES.PLAYING || this.state === STATES.LEVEL_UP) {
-                this.play();
-            } else if (this.state === STATES.RESET) {
-                this.stopGame();
-                this.draw();
+                this.balls.forEach(ball => ball.update());
             }
+
+            if (this.state === STATES.LEVEL_UP) {
+                this.createTextCongratulation();
+            }
+        }
+
+        Timer.requestAnimation(() => {
+            this.draw();
         });
     }
 
@@ -375,13 +424,11 @@ export class GameBoard {
         if ((o.centerX - o.radius) <= 0) {
             o.centerX = o.radius;
             o.direction = 1;
-            this.speedUp(o);
         }
 
         if ((o.centerX + o.radius) >= this.width) {
             o.centerX = this.width - o.radius;
             o.direction = -1;
-            this.speedUp(o);
         }
         o.centerX += (o.speedX * o.direction);
     }
@@ -394,7 +441,6 @@ export class GameBoard {
                 o[key] = object[key];
             }
         }
-
         o.centerY -= o.speedY;
     }
 
@@ -404,44 +450,40 @@ export class GameBoard {
         for (let i = 0; i < this.gameLevel.properties().totalObject; i++) {
             this.objects.push(this.getRandomObject());
         }
-        this.state = STATES.PLAYING;
     }
 
     getRandomObject() {
         const currentLevel = this.gameLevel.properties();
         let score = Utils.getRandomInArray(currentLevel.score);
-        const isSpecial = score === currentLevel.score.slice(-1) && (Date.now() - currentLevel.startTsp) >= 30 * 1000;
-        if (isSpecial) {
-            score = 25;
-            console.log('gotcha!!');
-        }
+        const isSpecial = score === currentLevel.score.slice(-1).pop() && (Date.now() - currentLevel.startTsp) >= 2 * 1000;
         const absScore = Math.abs(score);
-        const speedX = Math.ceil(absScore / 2);
-        const speedY = Utils.getRandomInt(2, absScore);
-        const minRadius = Math.floor(this.width / currentLevel.totalObject);
-        const maxRadius = Math.floor(this.width / (currentLevel.totalObject / 2));
-        let size = Math.floor(this.width / absScore);
-        if (size >= maxRadius) {
-            size = maxRadius;
-        }
-
+        const speedX = Math.ceil(absScore / 3);
+        const speedY = Utils.getRandomInt(2, 8);
+        const minRadius = 60;
+        const maxRadius = 150;
+        let size = maxRadius - absScore + 1;
         if (size <= minRadius) {
             size = minRadius;
         }
+        if (isSpecial) {
+            score = 100;
+            console.log('special balloon!!');
+        }
+        let pop = Utils.getRandomInArray(Preload.popImages);
+        const rgb = Utils.getRandomColor();
+        let isBadBalloon = false;
+        if (score < 0) {
+            isBadBalloon = true;
+            pop = Utils.getRandomInArray(Preload.popLeuLeuImages);
+        }
         const radius = size;
         const centerX = Utils.getRandomInt(radius, this.width - radius);
-        const centerY = this.height + radius;
+        const centerY = this.height + (radius * 2);
         const direction = Utils.getRandomDirection();
         const wasPopped = false;
         const canShow = true;
-        let pop = Utils.getRandomInArray(Preload.popImages);
-        let rgb = Utils.getRandomColor();
-        if (score < 0) {
-            rgb = 'rgb(15,14,34)';
-            pop = Utils.getRandomInArray(Preload.popLeuLeuImages);
-        }
         const context = this.getContext();
-        const balloon = new Balloon(context, centerX, centerY, radius, rgb, isSpecial);
+        const balloon = new Balloon(context, centerX, centerY, radius, rgb, isBadBalloon, isSpecial);
         return {
             centerX,
             centerY,

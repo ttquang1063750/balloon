@@ -18,13 +18,15 @@ export class Balloon {
     path2D;
     color;
     isSpecial;
+    isBadBalloon;
 
-    constructor(context, centerX, centerY, radius, color, isSpecial = false) {
+    constructor(context, centerX, centerY, radius, color, isBadBalloon = false, isSpecial = false) {
         this.context = context;
         this.centerX = centerX;
         this.centerY = centerY;
         this.radius = radius;
         this.color = color;
+        this.isBadBalloon = isBadBalloon;
         this.isSpecial = isSpecial;
     }
 
@@ -133,17 +135,33 @@ export class Balloon {
 
         // Create balloon gradient
         const gradientOffset = (radius / 3);
-        const balloonGradient = context
-            .createRadialGradient(
-                centerX + gradientOffset,
-                centerY - gradientOffset,
-                GRADIENT_CIRCLE_RADIUS,
-                centerX,
-                centerY,
-                radius + heightDiff
-            );
-        balloonGradient.addColorStop(0, this.lightColor.hex());
-        balloonGradient.addColorStop(0.7, this.darkColor.hex());
+        let balloonGradient;
+        if (this.isBadBalloon) {
+            balloonGradient = context
+                .createLinearGradient(
+                    centerX + gradientOffset,
+                    centerY - gradientOffset,
+                    centerX,
+                    centerY
+                );
+            balloonGradient.addColorStop(0, this.darkColor.hex());
+            balloonGradient.addColorStop(0.4, this.lightColor.hex());
+            balloonGradient.addColorStop(0.5, this.darkColor.hex());
+            balloonGradient.addColorStop(0.7, this.lightColor.hex());
+            balloonGradient.addColorStop(0.8, this.darkColor.hex());
+        } else {
+            balloonGradient = context
+                .createRadialGradient(
+                    centerX + gradientOffset,
+                    centerY - gradientOffset,
+                    GRADIENT_CIRCLE_RADIUS,
+                    centerX,
+                    centerY,
+                    radius + heightDiff
+                );
+            balloonGradient.addColorStop(0, this.lightColor.hex());
+            balloonGradient.addColorStop(0.7, this.darkColor.hex());
+        }
 
         context.fillStyle = balloonGradient;
         context.fill(this.path2D);

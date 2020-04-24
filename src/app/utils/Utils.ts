@@ -97,14 +97,12 @@ export class Utils {
     }
 
     static getRandomInArray(array) {
-        // tslint:disable-next-line:no-bitwise
-        return array[Math.random() * array.length | 0];
+        return array[Math.floor(Math.random() * array.length)];
     }
 
     static getRandomDirection() {
         const directions = [-1, 1];
-        // tslint:disable-next-line:no-bitwise
-        return directions[Math.random() * directions.length | 0];
+        return Utils.getRandomInArray(directions);
     }
 
     static getRandomInt(min, max) {

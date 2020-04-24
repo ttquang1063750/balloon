@@ -5,6 +5,24 @@ export class Timer {
         });
     }
 
+    static requestTimeOut(cb, delay) {
+        let request;
+        const tsp = Date.now();
+        const timer = () => {
+            request = requestAnimationFrame(() => {
+                const now = Date.now();
+                if (now - tsp >= delay) {
+                    cancelAnimationFrame(request);
+                    cb();
+                } else {
+                    timer();
+                }
+            });
+        };
+
+        timer();
+    }
+
     static requestAnimation(cb) {
         requestAnimationFrame(() => cb());
     }
