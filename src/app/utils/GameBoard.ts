@@ -44,8 +44,9 @@ export class GameBoard {
     balls = [];
     textPauseButton = 'pause';
     ringSound = null;
-    tooltip = '';
+    currentScore = 0;
     lastPop = 0;
+    balloonPopped: Balloon;
 
     constructor(elementId) {
         this.canvas = document.getElementById(elementId);
@@ -127,14 +128,11 @@ export class GameBoard {
                     o.canShow = false;
                     o.wasPopped = true;
                     this.count++;
+                    this.balloonPopped = o.balloon;
                     this.createExplore(clientX, clientY, this.totalSmallBall);
                     this.score += o.score;
                     this.lastPop = Date.now();
-                    if (o.score > 0) {
-                        this.tooltip = `gotcha!!  ${o.score}`;
-                    } else {
-                        this.tooltip = `flee!!  ${o.score}`;
-                    }
+                    this.currentScore = o.score;
                     if (this.score < 0) {
                         this.score = 0;
                     }
@@ -143,7 +141,7 @@ export class GameBoard {
                         this.levelUp();
                     } else {
                         let popPlayer: Sound;
-                        this.lastBalloonColor = o.rgb;
+                        this.lastBalloonColor = o.color;
                         if (o.score < 0) {
                             popPlayer = this.popSoundPlayer[1];
                         } else {
@@ -201,9 +199,11 @@ export class GameBoard {
         ctx.font = `${this.height / 6}px Comic Sans MS`;
         // Create gradient
         const gradient = ctx.createLinearGradient(0, 0, this.width, 0);
-        gradient.addColorStop(0, Utils.getRandomColor());
-        gradient.addColorStop(0.5, Utils.getRandomColor());
-        gradient.addColorStop(1, Utils.getRandomColor());
+        gradient.addColorStop(0, '#051937');
+        gradient.addColorStop(0.25, '#004d7a');
+        gradient.addColorStop(0.5, '#008793');
+        gradient.addColorStop(0.75, '#00bf72');
+        gradient.addColorStop(1, '#A8EB12');
         // Fill with gradient
         ctx.fillStyle = gradient;
         ctx.fillText('Level Up', this.width / 2, this.height / 2);
@@ -246,34 +246,32 @@ export class GameBoard {
         ctx.shadowColor = this.btnScoreColor;
         ctx.fillRect((x * 2) + w, y, w, h);
         ctx.fillRect((x * 3) + w * 2, y, w, h);
-
         ctx.restore();
-
         ctx.font = `${fontSize}px Comic Sans MS`;
         ctx.textAlign = 'center';
         ctx.fillStyle = 'white';
         ctx.fillText(`${this.count}`, balloonRadius + w / 2, y + h / 2 + fontSize / 2);
         ctx.save();
-        const balloon = new Balloon(ctx, (x * 2) + balloonRadius, h / 2, balloonRadius, this.lastBalloonColor);
+        const balloon = new Balloon(ctx, (x * 2) + balloonRadius, h / 2, balloonRadius, this.lastBalloonColor, this.currentScore);
         balloon.draw();
         ctx.restore();
-
+        ctx.save();
         ctx.fillText(`score: ${this.score}`, (x * 2) + w * 1.5, y + h / 2 + fontSize / 2);
         ctx.fillText(`Target: ${this.gameLevel.properties().pointRequired}`, (x * 3) + w * 2.5, y + h / 2 + fontSize / 2);
-
         ctx.textAlign = 'left';
         ctx.fillStyle = this.timeAgoColor;
         ctx.fillText(`Level: ${this.gameLevel.properties().level} - Played: ${Timer.timeAgo(this.startTsp)}`, x, this.height - 10);
 
-        if (this.lastPop + 1000 > Date.now() && this.tooltip !== '') {
+        if (this.lastPop + 1000 > Date.now() && !!this.currentScore) {
             ctx.fillStyle = 'black';
             ctx.fillRect(this.width / 2 - 100, this.height - 35, 200, 30);
 
             ctx.textAlign = 'center';
             ctx.fillStyle = 'white';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${this.tooltip}`, this.width / 2, this.height - 18);
+            ctx.fillText((this.currentScore < 0 ? 'flee!!! ' : 'gotcha!!! ') +  this.currentScore, this.width / 2, this.height - 18);
         }
+        ctx.restore();
     }
 
     renderStartButton() {
@@ -457,10 +455,10 @@ export class GameBoard {
         let score = Utils.getRandomInArray(currentLevel.score);
         const isSpecial = score === currentLevel.score.slice(-1).pop() && (Date.now() - currentLevel.startTsp) >= 2 * 1000;
         const absScore = Math.abs(score);
-        const speedX = Math.ceil(absScore / 3);
+        const speedX = Utils.getRandomInt(2, 8);
         const speedY = Utils.getRandomInt(2, 8);
-        const minRadius = 60;
-        const maxRadius = 150;
+        const minRadius = Math.floor(this.width / 15);
+        const maxRadius = Math.floor(this.width / 10);
         let size = maxRadius - absScore + 1;
         if (size <= minRadius) {
             size = minRadius;
@@ -470,10 +468,8 @@ export class GameBoard {
             console.log('special balloon!!');
         }
         let pop = Utils.getRandomInArray(Preload.popImages);
-        const rgb = Utils.getRandomColor();
-        let isBadBalloon = false;
+        const color = Utils.getRandomColor();
         if (score < 0) {
-            isBadBalloon = true;
             pop = Utils.getRandomInArray(Preload.popLeuLeuImages);
         }
         const radius = size;
@@ -483,7 +479,7 @@ export class GameBoard {
         const wasPopped = false;
         const canShow = true;
         const context = this.getContext();
-        const balloon = new Balloon(context, centerX, centerY, radius, rgb, isBadBalloon, isSpecial);
+        const balloon = new Balloon(context, centerX, centerY, radius, color, score, isSpecial);
         return {
             centerX,
             centerY,
@@ -491,7 +487,7 @@ export class GameBoard {
             speedY,
             direction,
             radius,
-            rgb,
+            color,
             balloon,
             score,
             canShow,

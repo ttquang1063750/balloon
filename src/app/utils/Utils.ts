@@ -66,17 +66,17 @@ export class Utils {
 
     static getRandomColor() {
         const colors = [
-            'rgb(229, 45, 45)',
-            'rgb(45, 137, 229)',
-            'rgb(113, 229, 45)',
-            'rgb(174, 0, 255)',
-            'rgb(145, 255, 106)',
-            'rgb(87,188,255)',
-            'rgb(255,108,22)',
-            'rgb(255,47,77)',
-            'rgb(99,109,205)',
-            'rgb(140,193,205)',
-            'rgb(249,23,255)',
+            '#E52D2D',
+            '#2D89E5',
+            '#71E52D',
+            '#AE00FF',
+            '#91FF6A',
+            '#57BCFF',
+            '#FF6C16',
+            '#FF2F4D',
+            '#636DCD',
+            '#8CC1CD',
+            '#F917FF',
             '#FA6900',
             '#E0E4CD',
             '#A7DBD7',
@@ -90,7 +90,12 @@ export class Utils {
             '#ffeead',
             '#ff6f69',
             '#ffcc5c',
-            '#88d8b0'
+            '#88d8b0',
+            '#051937',
+            '#004d7a',
+            '#008793',
+            '#00bf72',
+            '#A8EB12'
         ];
 
         return Utils.getRandomInArray(colors);
